@@ -1,0 +1,6 @@
+certifi==2021.10.8
+colorzero==2.0
+gpiozero==1.6.2
+pynput==1.7.5
+six==1.16.0
+wincertstore==0.2
