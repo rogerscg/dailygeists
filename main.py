@@ -21,6 +21,9 @@ def handle_key_presses():
 
 
 def handle_key_states():
+    # TODO: Handle keys switching states, not updating every loop.
+    # TODO: Send API request to Sheets based on button data.
+    # TODO: Handle cases where a key was pressed too quickly after another/simultaneously with another.
     if key_state[LED_KEY]:
         led.on()
     else:
@@ -29,6 +32,7 @@ def handle_key_states():
 
 def main():
     global enabled
+    # TODO: Don't do this. Record every n ms instead of looping continuously for the sake of energy/heat.
     while enabled:
         handle_key_presses()
         handle_key_states()
