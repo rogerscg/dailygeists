@@ -47,17 +47,6 @@ def init_gpio():
     red_led = LED(27)
 
 
-def maybe_log_cpu_temp():
-    global last_cpu_log_time, cpu
-    if cpu is None:
-        return
-    if time.time() - last_cpu_log_time < TIME_LOG_CPU_TEMP_SECS:
-        return
-    last_cpu_log_time = time.time()
-    thr = threading.Thread(target=record_cpu_temp, args=(cpu.temperature))
-    thr.start()
-
-
 def get_sheets_creds():
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
@@ -118,6 +107,17 @@ def record_response(response):
         print(err)
     if led is not None:
         led.off()
+
+
+def maybe_log_cpu_temp():
+    global last_cpu_log_time, cpu
+    if cpu is None:
+        return
+    if time.time() - last_cpu_log_time < TIME_LOG_CPU_TEMP_SECS:
+        return
+    last_cpu_log_time = time.time()
+    thr = threading.Thread(target=record_cpu_temp, args=(cpu.temperature))
+    thr.start()
 
 
 def handle_key_state_change(key, new_state):
