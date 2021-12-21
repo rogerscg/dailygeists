@@ -138,9 +138,9 @@ def handle_key_presses():
 def main():
     global enabled
     init_gpio()
-    # TODO: Don't do this. Record every n ms instead of looping continuously for the sake of energy/heat.
     # TODO: Start up service when system starts.
     while enabled:
+        keyboard.read_event()
         handle_key_presses()
         maybe_log_cpu_temp()
 
