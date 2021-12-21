@@ -1,5 +1,6 @@
 import keyboard
 import os
+import threading
 import time
 # Fix for dev environment.
 if os.environ.get('dev'):
@@ -53,7 +54,8 @@ def maybe_log_cpu_temp():
     if time.time() - last_cpu_log_time < TIME_LOG_CPU_TEMP_SECS:
         return
     last_cpu_log_time = time.time()
-    record_cpu_temp(cpu.temperature)
+    thr = threading.Thread(target=record_cpu_temp, args=(cpu.temperature))
+    thr.start()
 
 
 def get_sheets_creds():
@@ -121,9 +123,9 @@ def record_response(response):
 def handle_key_state_change(key, new_state):
     # Only handle state changes based on RESPONSE_KEYS that have been released.
     if key in RESPONSE_KEYS and not new_state:
-        record_response(key)
+        thr = threading.Thread(target=record_response, args=(key))
+        thr.start()
         # TODO: Handle cases where a key was pressed too quickly after another/simultaneously with another.
-        # TODO: Handle cases where the response might take too long.
 
 
 def handle_key_presses():
