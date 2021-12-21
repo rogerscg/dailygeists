@@ -1,6 +1,8 @@
-import time
 import keyboard
 import os
+import time
+# Fix for dev environment.
+os.environ['GPIOZERO_PIN_FACTORY'] = os.environ.get('GPIOZERO_PIN_FACTORY', 'mock')
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -15,12 +17,15 @@ ESC = "esc"
 RESPONSE_KEYS = ["1", "2", "3", "4", "5"]
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SPREADSHEET_ID = '12U7PVLhj6NCvA50kiwy1HLujdZZyL5KNrnKMR3BdblU'
-SHEET_NAME = 'Device Responses'
-RANGE_NAME = SHEET_NAME + '!A1:B1'
+RESPONSES_SHEET_NAME = 'Device Responses'
+TEMP_SHEET_NAME = 'Device Temperature'
+RANGE_NAME = RESPONSES_SHEET_NAME + '!A1:B1'
+TIME_LOG_CPU_TEMP_SECS = 10
 
 # Global Objects
-cpu = CPUTemperature()
-led = LED(17)
+cpu = None
+led = None
+last_cpu_log_time = 0
 enabled = True
 key_state = {
     "1": False,
@@ -31,10 +36,25 @@ key_state = {
 }
 
 
-def record_response(response):
-    """Shows basic usage of the Sheets API.
-        Prints values from a sample spreadsheet.
-        """
+def init_gpio():
+    global cpu, led
+    if os.environ.get('GPIOZERO_PIN_FACTORY', 'mock') == 'mock':
+        return
+    cpu = CPUTemperature()
+    led = LED(17)
+
+
+def maybe_log_cpu_temp():
+    global last_cpu_log_time, cpu
+    if cpu is None:
+        return
+    if time.time() - last_cpu_log_time < TIME_LOG_CPU_TEMP_SECS:
+        return
+    last_cpu_log_time = time.time()
+    record_cpu_temp(cpu.temperature)
+
+
+def get_sheets_creds():
     creds = None
     # The file token.json stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first
@@ -52,7 +72,27 @@ def record_response(response):
         # Save the credentials for the next run
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
+    return creds
 
+
+def record_cpu_temp(temp):
+    creds = get_sheets_creds()
+    try:
+        service = build('sheets', 'v4', credentials=creds)
+        # Call the Sheets API
+        sheet = service.spreadsheets()
+        values = [[time.time(), temp]]
+        body = {'values': values}
+        result = sheet.values().append(
+            spreadsheetId=SPREADSHEET_ID, range=TEMP_SHEET_NAME + '!A:B',
+            valueInputOption="RAW", body=body).execute()
+        print('{0} cells updated.'.format(result.get('updates').get('updatedCells')))
+    except HttpError as err:
+        print(err)
+
+
+def record_response(response):
+    creds = get_sheets_creds()
     try:
         service = build('sheets', 'v4', credentials=creds)
 
@@ -72,10 +112,12 @@ def handle_key_state_change(key, new_state):
     # Only handle state changes based on RESPONSE_KEYS that have been released.
     if key in RESPONSE_KEYS and not new_state:
         print("Released " + key)
-        led.on()
+        if led is not None:
+            led.on()
         record_response(key)
-        t = Timer(1.0, led.off)
-        t.start()
+        if led is not None:
+            t = Timer(1.0, led.off)
+            t.start()
         # TODO: Handle cases where a key was pressed too quickly after another/simultaneously with another.
         # TODO: Handle cases where the response might take too long.
 
@@ -94,10 +136,12 @@ def handle_key_presses():
 
 def main():
     global enabled
+    init_gpio()
     # TODO: Don't do this. Record every n ms instead of looping continuously for the sake of energy/heat.
-    # TODO: Record CPU temperature in a sheet as well.
+    # TODO: Start up service when system starts.
     while enabled:
         handle_key_presses()
+        maybe_log_cpu_temp()
 
 
 if __name__ == "__main__":
