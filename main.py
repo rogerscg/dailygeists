@@ -2,7 +2,8 @@ import keyboard
 import os
 import time
 # Fix for dev environment.
-os.environ['GPIOZERO_PIN_FACTORY'] = os.environ.get('GPIOZERO_PIN_FACTORY', 'mock')
+if os.environ.get('dev'):
+    os.environ['GPIOZERO_PIN_FACTORY'] = os.environ.get('GPIOZERO_PIN_FACTORY', 'mock')
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -38,7 +39,7 @@ key_state = {
 
 def init_gpio():
     global cpu, led
-    if os.environ.get('GPIOZERO_PIN_FACTORY', 'mock') == 'mock':
+    if os.environ.get('dev'):
         return
     cpu = CPUTemperature()
     led = LED(17)
@@ -101,7 +102,7 @@ def record_response(response):
         values = [[time.time(), response]]
         body = {'values': values}
         result = sheet.values().append(
-            spreadsheetId=SPREADSHEET_ID, range=SHEET_NAME + '!A:B',
+            spreadsheetId=SPREADSHEET_ID, range=RESPONSES_SHEET_NAME + '!A:B',
             valueInputOption="RAW", body=body).execute()
         print('{0} cells updated.'.format(result.get('updates').get('updatedCells')))
     except HttpError as err:
