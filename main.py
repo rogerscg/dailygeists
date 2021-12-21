@@ -13,7 +13,6 @@ from gpiozero import CPUTemperature, LED
 from threading import Timer
 
 # Constants
-LED_KEY = "1"
 ESC = "esc"
 RESPONSE_KEYS = ["1", "2", "3", "4", "5"]
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
@@ -26,6 +25,7 @@ TIME_LOG_CPU_TEMP_SECS = 10
 # Global Objects
 cpu = None
 led = None
+red_led = None
 last_cpu_log_time = 0
 enabled = True
 key_state = {
@@ -38,11 +38,12 @@ key_state = {
 
 
 def init_gpio():
-    global cpu, led
+    global cpu, led, red_led
     if os.environ.get('dev'):
         return
     cpu = CPUTemperature()
     led = LED(17)
+    red_led = LED(27)
 
 
 def maybe_log_cpu_temp():
@@ -77,6 +78,8 @@ def get_sheets_creds():
 
 
 def record_cpu_temp(temp):
+    if red_led is not None:
+        red_led.on()
     creds = get_sheets_creds()
     try:
         service = build('sheets', 'v4', credentials=creds)
@@ -90,9 +93,13 @@ def record_cpu_temp(temp):
         print('{0} cells updated.'.format(result.get('updates').get('updatedCells')))
     except HttpError as err:
         print(err)
+    if red_led is not None:
+        red_led.off()
 
 
 def record_response(response):
+    if led is not None:
+        led.on()
     creds = get_sheets_creds()
     try:
         service = build('sheets', 'v4', credentials=creds)
@@ -107,18 +114,14 @@ def record_response(response):
         print('{0} cells updated.'.format(result.get('updates').get('updatedCells')))
     except HttpError as err:
         print(err)
+    if led is not None:
+        led.off()
 
 
 def handle_key_state_change(key, new_state):
     # Only handle state changes based on RESPONSE_KEYS that have been released.
     if key in RESPONSE_KEYS and not new_state:
-        print("Released " + key)
-        if led is not None:
-            led.on()
         record_response(key)
-        if led is not None:
-            t = Timer(1.0, led.off)
-            t.start()
         # TODO: Handle cases where a key was pressed too quickly after another/simultaneously with another.
         # TODO: Handle cases where the response might take too long.
 
